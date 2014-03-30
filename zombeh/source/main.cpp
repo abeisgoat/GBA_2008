@@ -1,0 +1,258 @@
+//Started a few days before 01/21/2009 
+#include "gba.h"
+#include "bg.h"
+#include "redblock.h"
+#include "greenblock.h"
+#include "level1.h"
+#include "crosshair.h"
+#include "burst.h"
+#include <cstring>
+
+#define REG_DISPCNT (*(volatile unsigned short*)0x4000000)
+#define REG_KEYS (*(unsigned short*)0x4000130)
+
+void InitializeSprites(void);
+void CopyOAM(void);
+void MoveSprite(OAMEntry* sp, int x, int y);
+void MoveBall();
+void MoveSprites(void);
+void zombehAI(int zom);
+void shotmath(int zom);
+
+OAMEntry sprites[128];
+
+u16 x = 80;
+u16 y = 80;
+u16 crosshairx = 120;
+u16 crosshairy = 80;
+u16 toppad = 8;
+u16 rpress = 0;
+u16 uppress;
+u16 downpress;
+u16 rightpress;
+u16 leftpress;
+u16 sightmode = 0;
+
+int speed = 1;
+int direction = 1;
+
+int zombehx[] = {110};
+int zombehy[] = {80};
+
+int zombehxcount[] = {0};
+int zombehycount[] = {0};
+
+int main() {
+
+	u16 loop;
+
+	SetMode(MODE_4 | BG2_ENABLE | OBJ_ENABLE | OBJ_MAP_1D);
+
+
+	for (loop = 0; loop < 256; loop++) {
+		BG_PaletteMem[loop]=bg_pal[loop];
+	}
+
+	for (loop = 0; loop < (120*160); loop++) {
+		FrontBuffer[loop] = bg_gfx[loop] ;
+	}
+
+
+	memcpy( (u16 *)0x06014000, &redblock1Data, sizeof(redblock1Data) );
+	memcpy( (u16 *)0x06014100, &greenblockData, sizeof(greenblockData) );
+	memcpy( (u16 *)0x06014200, &crosshairData, sizeof(crosshairData) );
+
+//Burst Data
+	memcpy( (u16 *)0x06014400, &burstData, sizeof(burstData) ); //512 + 16 + 8*1
+	//memcpy( (u16 *)0x06014500, &burstData, sizeof(burstData2) ); //512 + 16 + 8*2
+	//memcpy( (u16 *)0x06014600, &burstData, sizeof(burstData3) ); //512 + 16 + 8*3
+	//memcpy( (u16 *)0x06014700, &burstData, sizeof(burstData4) ); //512 + 16 + 8*4
+
+
+	for(loop = 0; loop < 256; loop++) {
+	OBJ_PaletteMem[loop] = palette[loop];
+	}
+
+
+	sprites[1].attribute0 = COLOR_256 | SQUARE | y;
+	sprites[1].attribute1 = SIZE_8 | x;
+	sprites[1].attribute2 = 512;
+
+	sprites[0].attribute0 = COLOR_256 | SQUARE | 80;
+	sprites[0].attribute1 = SIZE_16 | 80;
+	sprites[0].attribute2 = 512+16;
+
+	sprites[100].attribute0 = COLOR_256 | SQUARE | 0;
+	sprites[100].attribute1 = SIZE_16 | 260;
+	sprites[100].attribute2 = 512+32;
+
+//Zombehs
+
+	sprites[20].attribute0 = COLOR_256 | SQUARE | zombehy[0];
+	sprites[20].attribute1 = SIZE_8 | zombehx[0];
+	sprites[20].attribute2 = 512+8;
+
+//End of Zombehs
+
+	while(1)
+	{
+		MoveBall();
+		MoveSprites();
+		WaitForVsync();
+		CopyOAM();
+		zombehAI(0);
+		shotmath(0);
+	}
+
+	return 0;
+
+}
+void MoveSprites(void) 
+{
+	MoveSprite(&sprites[1],x,y);
+	MoveSprite(&sprites[0],crosshairx,crosshairy);
+	MoveSprite(&sprites[20],zombehx[0],zombehy[0]);
+}
+
+void InitializeSprites(void)
+{
+	u16 loop;
+	for(loop = 0; loop < 128; loop++) {
+		sprites[loop].attribute0 = 160;
+		sprites[loop].attribute1 = 240;
+	}
+}
+
+void CopyOAM(void)
+{
+	u16 loop;
+	u16* temp;
+	temp = (u16*)sprites;
+	for(loop = 0; loop < 128*4; loop++)	{
+		OAM_Mem[loop] = temp[loop];
+	}
+}
+
+void MoveSprite(OAMEntry* sp, int x, int y)
+{
+
+
+	sp->attribute1 = sp->attribute1 & 0xFE00;
+	sp->attribute1 = sp->attribute1 | x;
+
+	sp->attribute0 = sp->attribute0 & 0xFF00;
+	sp->attribute0 = sp->attribute0 | y;
+}
+
+void zombehAI(int zom) 
+{
+if (zombehx[zom] < x) zombehxcount[zom]+=1;
+if (zombehx[zom] > x) zombehxcount[zom]-=1;
+if (zombehy[zom] < y) zombehycount[zom]+=1;
+if (zombehy[zom] > y) zombehycount[zom]-=1;
+
+//if (zombehy[] == y && zombehx[] == x) memcpy( (u16 *)0x06014000, &greenblockData, sizeof(greenblockData) );
+
+if (zombehycount[zom] == 5 && level1[int(((zombehx[zom]+7)/8) + ((zombehy[zom]+8)/8)*30)] == 0 && level1[int((zombehx[zom]/8) + ((zombehy[zom]+8)/8)*30)] == 0) {zombehycount[zom] -= 5; zombehy[zom] +=1; 
+}else if (zombehycount[zom] == 5) {zombehycount[zom] -= 5;} 
+if (zombehycount[zom] == -5 && level1[int(((zombehx[zom]+7)/8) + ((zombehy[zom]-1)/8)*30)] == 0 && level1[int((zombehx[zom]/8) + ((zombehy[zom]-1)/8)*30)] == 0) {zombehycount[zom] += 5; zombehy[zom] -=1;  
+}else if (zombehycount[zom] == -5) {zombehycount[zom] += 5;} 
+if (zombehxcount[zom] == 5 && level1[int(((zombehx[zom]+8)/8) + ((zombehy[zom]+7)/8)*30)] == 0 && level1[int(((zombehx[zom]+8)/8) + ((zombehy[zom])/8)*30)] == 0) {zombehxcount[zom] -= 5; zombehx[zom] +=1; 
+}else if (zombehxcount[zom] == 5) {zombehxcount[zom] -= 5;}
+if (zombehxcount[zom] == -5 && level1[int(((zombehx[zom]-1)/8) + ((zombehy[zom]+7)/8)*30)] == 0 && level1[int(((zombehx[zom]-1)/8) + ((zombehy[zom])/8)*30)] == 0) {zombehxcount[zom] += 5; zombehx[zom] -=1; 
+}else if (zombehxcount[zom] == -5) {zombehxcount[zom] += 5;}  
+}
+
+void MoveBall(void) {
+   if (sightmode == 0) {
+	crosshairx = 250;
+   }
+
+   if(!(REG_KEYS & KEY_R)) {
+	sightmode = 1;
+	if (rpress == 0) {
+	crosshairx = 112;
+	crosshairy = 72;
+	}
+	rpress = 1;
+      }else{
+	rpress = 0;
+	sightmode = 0;
+      }
+
+   if(!(REG_KEYS & KEY_UP)) {
+      if (sightmode == 0 && y-1 >= 0 && level1[int(((x+7)/8) + ((y-1)/8)*30)] == 0 && level1[int((x/8) + ((y-1)/8)*30)] == 0) { y -= 1; 
+      }else if (sightmode == 1) {
+	crosshairy -= 1;
+      }
+      }
+ 
+   if(!(REG_KEYS & KEY_DOWN)) {
+      if (sightmode == 0 && y+1 <= 160 && level1[int(((x+7)/8) + ((y+8)/8)*30)] == 0 && level1[int((x/8) + ((y+8)/8)*30)] == 0) { y += 1; 
+      }else if (sightmode == 1) {
+	crosshairy += 1;
+      }
+      }
+
+   if(!(REG_KEYS & KEY_LEFT)) {
+      if (sightmode == 0 && x-1 >= 0 && level1[int(((x-1)/8) + ((y+7)/8)*30)] == 0 && level1[int(((x-1)/8) + ((y)/8)*30)] == 0) { x -= 1; 
+      }else if (sightmode == 1) {
+	crosshairx -= 1;
+      }
+      }
+ 
+   if(!(REG_KEYS & KEY_RIGHT)) {
+      if (sightmode == 0 && x+1 <= 232 && level1[int(((x+8)/8) + ((y+7)/8)*30)] == 0 && level1[int(((x+8)/8) + ((y)/8)*30)] == 0) { x += 1; 
+
+      }else if (sightmode == 1) {
+	crosshairx += 1;
+      }
+      }
+//Change Sprite------------------------------------------------------------------------------------------------------//
+   if(sightmode == 0) {
+   if(!(REG_KEYS & KEY_UP) && (!(REG_KEYS & KEY_RIGHT))) {
+	memcpy( (u16 *)0x06014000, &redblock8Data, sizeof(redblock8Data) );
+	direction = 8;
+   }else if(!(REG_KEYS & KEY_UP) && (!(REG_KEYS & KEY_LEFT))) {
+	memcpy( (u16 *)0x06014000, &redblock7Data, sizeof(redblock7Data) );
+	direction = 7;
+   }else if(!(REG_KEYS & KEY_DOWN) && (!(REG_KEYS & KEY_RIGHT))) {
+	memcpy( (u16 *)0x06014000, &redblock5Data, sizeof(redblock5Data) );
+	direction = 5;
+   }else if(!(REG_KEYS & KEY_DOWN) && (!(REG_KEYS & KEY_LEFT))) {
+	memcpy( (u16 *)0x06014000, &redblock6Data, sizeof(redblock6Data) );
+	direction = 6;
+   }else if(!(REG_KEYS & KEY_UP)) {
+	memcpy( (u16 *)0x06014000, &redblock4Data, sizeof(redblock4Data) );
+	direction = 4;
+   }else if(!(REG_KEYS & KEY_DOWN)) {
+	memcpy( (u16 *)0x06014000, &redblock2Data, sizeof(redblock2Data) );
+	direction = 2;
+   }else if(!(REG_KEYS & KEY_RIGHT)) {
+	memcpy( (u16 *)0x06014000, &redblock1Data, sizeof(redblock1Data) );
+	direction = 1;
+   }else if(!(REG_KEYS & KEY_LEFT)) {
+	memcpy( (u16 *)0x06014000, &redblock3Data, sizeof(redblock3Data) );
+	direction = 3;
+  }
+//	memcpy( (u16 *)0x06014000, &redblock0Data, sizeof(redblock0Data) );
+}
+}
+
+void shotmath(int zom) {
+   if(!(REG_KEYS & KEY_B)) {
+       if(zombehy[zom] > y-4 && zombehy[zom] < y+4 && zombehx[zom] > x && direction == 1) {
+	memcpy( (u16 *)0x06014000, &greenblockData, sizeof(greenblockData) );
+      }else if (direction == 1) {}
+       if(zombehx[zom] > x-4 && zombehx[zom] < x+4 && zombehy[zom] > y && direction == 2) {
+	memcpy( (u16 *)0x06014000, &greenblockData, sizeof(greenblockData) );
+      }else if (direction == 2) {}
+       if(zombehy[zom] > y-4 && zombehy[zom] < y+4 && zombehx[zom] < x && direction == 3) {
+	memcpy( (u16 *)0x06014000, &greenblockData, sizeof(greenblockData) );
+      }else if (direction == 3) {}
+       if(zombehx[zom] > x-4 && zombehx[zom] < x+4 && zombehy[zom] < y && direction == 4) {
+	memcpy( (u16 *)0x06014000, &greenblockData, sizeof(greenblockData) );
+      }else if (direction == 4) {}
+      }
+}
+

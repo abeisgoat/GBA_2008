@@ -1,0 +1,675 @@
+//Started Dec 22, 2008
+#include "gba.h"
+#include "logo.h"
+#include "pointer.h"
+#include "blocks.h"
+#include "bg.h"
+#include "bg2.h"
+#include "border.h"
+#include "nums.h"
+#include "gameover.h"
+#include "words.h"
+#include <time.h>
+#include <cstring>
+#include <cstdlib> 
+#include <fade.h>
+
+//YRBG
+//9999ff
+
+#define REG_DISPCNT (*(volatile unsigned short*)0x4000000)
+#define REG_KEYS (*(unsigned short*)0x4000130)
+
+void InitializeSprites(void);
+void CopyOAM(void);
+void MoveSprite(OAMEntry* sp, int x, int y);
+void Moveblock(void);
+void rotate(void);
+void checkstack(void);
+void initialrotate(void);
+void randombricks(void);
+void displayNumber(void);
+void gameover(void);
+
+OAMEntry sprites[128];
+
+char* blocklayout[36];
+
+
+const char* colorlayout[] = {"y", "r", "b", "g"};
+
+int xblocklayout[35];
+
+int speed = 1;
+int leftpress = 0;
+int rightpress = 0;
+int downpress = 0;
+int uppress = 0;
+int currentbar = 1;
+int scoreposition = 148;
+int scoreposition2 = 124;
+
+//important variables, well I mean they are all important, these are just more important...yea
+int moves = 6;
+int score = 0;
+
+
+
+u16 xblock = 24;
+u16 xblock2 = 24;
+u16 xblock3 = 24;
+u16 yblock = 50;
+
+u16 ypointer = 50+16*currentbar;
+
+u16 newpos1 = 24;
+u16 newpos2 = 24;
+u16 newpos3 = 24;
+
+char* kwp = "False";
+
+int main() {
+
+	u16 loop;
+
+	srand(time(NULL));
+
+	SetMode(MODE_4 | BG2_ENABLE | OBJ_ENABLE | OBJ_MAP_1D);
+	
+
+	for (loop = 0; loop < 256; loop++) {
+		BG_PaletteMem[loop]=bgPalette[loop];
+	}
+
+	for (loop = 0; loop < (120*160); loop++) {
+		FrontBuffer[loop] = bgData[loop] ;
+	}
+
+	while(REG_KEYS & KEY_START) {}
+
+	for (loop = 0; loop < 256; loop++) {
+		BG_PaletteMem[loop]=bg2Palette[loop];
+	}
+
+	for (loop = 0; loop < (120*160); loop++) {
+		FrontBuffer[loop] = bg2Data[loop] ;
+	}
+//MEM ALLEY***************************************************************************//
+//border block
+
+	for(loop = 0; loop < 256; loop++) {
+	OBJ_PaletteMem[loop] = globalPalette[loop];
+	}
+
+// Numbers //
+	memcpy( (u16 *)0x06016100, &num0Data, sizeof(num0Data) );
+	memcpy( (u16 *)0x06016200, &num1Data, sizeof(num1Data) );
+	memcpy( (u16 *)0x06016300, &num2Data, sizeof(num2Data) );
+	memcpy( (u16 *)0x06016400, &num3Data, sizeof(num3Data) );
+	memcpy( (u16 *)0x06016500, &num4Data, sizeof(num4Data) );
+	memcpy( (u16 *)0x06016600, &num5Data, sizeof(num5Data) );
+	memcpy( (u16 *)0x06016700, &num6Data, sizeof(num6Data) );
+	memcpy( (u16 *)0x06016800, &num7Data, sizeof(num7Data) );
+	memcpy( (u16 *)0x06016900, &num8Data, sizeof(num8Data) );
+	memcpy( (u16 *)0x06016a00, &num9Data, sizeof(num9Data) );
+	memcpy( (u16 *)0x06017300, &wordsData, sizeof(wordsData) );
+
+// EONs //
+
+	memcpy( (u16 *)0x06014c00, &lborderData, sizeof(lborderData) );
+
+	sprites[2].attribute0 = COLOR_256 | TALL | 42;
+	sprites[2].attribute1 = SIZE_64 | 8;
+	sprites[2].attribute2 = 512+96;
+
+	memcpy( (u16 *)0x06015400, &rborderData, sizeof(rborderData) );
+
+	sprites[1].attribute0 = COLOR_256 | TALL | 42;
+	sprites[1].attribute1 = SIZE_64 | 200;
+	sprites[1].attribute2 = 512+160;
+
+	memcpy( (u16 *)0x06015c00, &logoData, sizeof(logoData) );
+
+	sprites[110].attribute0 = COLOR_256 | WIDE | 3;
+	sprites[110].attribute1 = SIZE_32 | 3;
+	sprites[110].attribute2 = 512+224;
+
+	sprites[120].attribute0 = COLOR_256 | TALL | 135;
+	sprites[120].attribute1 = SIZE_8 | 124;
+	sprites[120].attribute2 = 512+264;
+
+//Score Sprites//
+	sprites[121].attribute0 = COLOR_256 | TALL | scoreposition;
+	sprites[121].attribute1 = SIZE_8 | scoreposition2+24;
+	sprites[121].attribute2 = 512+264;
+
+	sprites[122].attribute0 = COLOR_256 | TALL | scoreposition;
+	sprites[122].attribute1 = SIZE_8 | scoreposition2+16;
+	sprites[122].attribute2 = 512+264;
+
+	sprites[123].attribute0 = COLOR_256 | TALL | scoreposition;
+	sprites[123].attribute1 = SIZE_8 | scoreposition2+8;
+	sprites[123].attribute2 = 512+264;
+
+	sprites[124].attribute0 = COLOR_256 | TALL | scoreposition;
+	sprites[124].attribute1 = SIZE_8 | scoreposition2;
+	sprites[124].attribute2 = 512+264;
+
+	sprites[125].attribute0 = COLOR_256 | WIDE | 130;
+	sprites[125].attribute1 = SIZE_64 | 60;
+	sprites[125].attribute2 = 512+408;
+
+//Score Sprites END//
+
+	memcpy( (u16 *)0x06016b00, &gameoverData, sizeof(gameoverData) );
+
+
+//grey block
+	memcpy( (u16 *)0x06014a00, &greyblockData, sizeof(greyblockData) );
+//Yellow Block
+	memcpy( (u16 *)0x06014000, &yellowblockData, sizeof(yellowblockData) );
+//Red Block
+	memcpy( (u16 *)0x06014200, &redblockData, sizeof(redblockData) );
+//Blue Block
+	memcpy( (u16 *)0x06014400, &blueblockData, sizeof(blueblockData) );
+//Green Block
+	memcpy( (u16 *)0x06014600, &greenblockData, sizeof(greenblockData) );
+//Green Block
+	memcpy( (u16 *)0x06014800, &pointerData, sizeof(pointerData) );
+
+	sprites[0].attribute0 = COLOR_256 | SQUARE | ypointer;
+	sprites[0].attribute1 = SIZE_16 | currentbar;
+	sprites[0].attribute2 = 512+64;
+	sprites[0].attribute2 = 512+64;
+
+//MEM ALLEY END ***************************************************************************//
+
+
+//Sprite Set up
+
+	for(loop = 0; loop < 30; loop++) {
+	int level = 0;
+	int yadd = 0;
+	int location = 0;
+
+	if (loop >= 24) {level = 24; yadd = 32;}
+	else if (loop >= 12) {level = 12; yadd = 16;}
+	if (blocklayout[loop] == colorlayout[0]) {location = 512;
+	}else if (blocklayout[loop] == colorlayout[1]){ location = 512 + 16;
+	}else if (blocklayout[loop] == colorlayout[2]){ location = 512 + 32;
+	}else if (blocklayout[loop] == colorlayout[3]){ location = 512 + 48;}
+	sprites[loop+5].attribute0 = COLOR_256 | SQUARE | yblock + yadd;
+	sprites[loop+5].attribute1 = SIZE_16 | xblock + (loop-level)*16;
+	sprites[loop+5].attribute2 = location;
+	}
+
+	//Layer 1
+	blocklayout[9] = blocklayout[1];
+	blocklayout[0] = blocklayout[8];
+
+	//Layer 2
+	blocklayout[19] = blocklayout[11];
+	blocklayout[10] = blocklayout[18];
+
+	//Layer 3
+	blocklayout[29] = blocklayout[21];
+	blocklayout[20] = blocklayout[28];
+	randombricks();
+	initialrotate();
+	initialrotate();
+
+	while(1)
+	{
+		Moveblock();
+		for(loop = 0; loop < 36; loop++) {
+		if (loop >= 24) {MoveSprite(&sprites[loop+5],xblock3+(loop-24)*16,yblock+32);}
+		else if (loop >= 12) {MoveSprite(&sprites[loop+5],xblock2+(loop-12)*16,yblock+16);}
+		else{MoveSprite(&sprites[loop+5],xblock+(loop)*16,yblock);}}
+		WaitForVsync();
+		CopyOAM();
+		MoveSprite(&sprites[0],currentbar,ypointer = 34+16*currentbar);
+		displayNumber();
+		gameover();
+		rotate();
+		if (xblock == newpos1 && xblock2 == newpos2 && xblock3 == newpos3) {
+		checkstack();
+		}
+	}
+
+	return 0;
+
+}
+
+void InitializeSprites(void)
+{
+	u16 loop;
+	for(loop = 0; loop < 128; loop++) {
+		sprites[loop+5].attribute0 = 160;
+		sprites[loop+5].attribute1 = 240;
+	}
+}
+
+void CopyOAM(void)
+{
+	u16 loop;
+	u16* temp;
+	temp = (u16*)sprites;
+	for(loop = 0; loop < 128*4; loop++)	{
+		OAM_Mem[loop] = temp[loop];
+	}
+}
+
+void MoveSprite(OAMEntry* sp, int x, int y)
+{
+
+	sp->attribute1 = sp->attribute1 & 0xFE00;
+	sp->attribute1 = sp->attribute1 | x;
+
+	sp->attribute0 = sp->attribute0 & 0xFF00;
+	sp->attribute0 = sp->attribute0 | y;
+}
+
+void Moveblock(void) {
+//Left & Right Key checks; when pressed they move they change the newpos not the actual xposition, for smoothness
+   if(!(REG_KEYS & KEY_LEFT)) {
+      if (leftpress == 0) {
+	if (currentbar == 1 && newpos1 != 8 && xblock == newpos1 && moves > 0) {newpos1 -= 16; kwp = "True";}
+	if (currentbar == 2 && newpos2 != 8 && xblock == newpos2 && moves > 0) {newpos2 -= 16; kwp = "True";}
+	if (currentbar == 3 && newpos3 != 8 && xblock == newpos3 && moves > 0) {newpos3 -= 16; kwp = "True";}
+	leftpress = 1;
+      }}else{ leftpress = 0; }
+ 
+   if(!(REG_KEYS & KEY_RIGHT)) {
+      if (rightpress == 0) {
+	if (currentbar == 1 && xblock == newpos1 && moves > 0) {newpos1 += 16; kwp = "True";}
+	if (currentbar == 2 && xblock == newpos2 && moves > 0) {newpos2 += 16; kwp = "True";}
+	if (currentbar == 3 && xblock == newpos3 && moves > 0) {newpos3 += 16; kwp = "True";}
+	rightpress = 1;
+      }}else{ rightpress = 0; }
+
+   if(!(REG_KEYS & KEY_DOWN)) {
+      if (downpress == 0) currentbar += 1; downpress = 1;
+      }else{ downpress = 0; }
+
+   if(!(REG_KEYS & KEY_UP)) {
+      if (uppress == 0) currentbar -= 1; uppress = 1;
+      }else{ uppress = 0; }
+
+
+//if xblock is smaller then newpos at 1, if its bigger, subtract one
+if (xblock < newpos1) xblock += 1;
+if (xblock > newpos1) xblock -= 1;
+
+if (xblock2 < newpos2) xblock2 += 1;
+if (xblock2 > newpos2) xblock2 -= 1;
+
+if (xblock3 < newpos3) xblock3 += 1;
+if (xblock3 > newpos3) xblock3 -= 1;
+
+
+if (currentbar <= 0) currentbar = 3;
+if (currentbar >= 4) currentbar = 1;
+	
+}
+
+void rotate(void) {
+u16 loop; 
+//Layer 1
+
+if (xblock == 8) {
+blocklayout[0] = blocklayout[11];
+blocklayout[1] = blocklayout[2];
+blocklayout[2] = blocklayout[3];
+blocklayout[3] = blocklayout[4];
+blocklayout[4] = blocklayout[5];
+blocklayout[5] = blocklayout[6];
+blocklayout[6] = blocklayout[7];
+blocklayout[7] = blocklayout[8];
+blocklayout[8] = blocklayout[9];
+blocklayout[9] = blocklayout[10];
+blocklayout[10] = blocklayout[11];
+blocklayout[11] = blocklayout[1];
+xblock = 24;
+newpos1 = 24;
+}
+
+if (xblock2 == 8) {
+blocklayout[12] = blocklayout[23];
+blocklayout[13] = blocklayout[14];
+blocklayout[14] = blocklayout[15];
+blocklayout[15] = blocklayout[16];
+blocklayout[16] = blocklayout[17];
+blocklayout[17] = blocklayout[18];
+blocklayout[18] = blocklayout[19];
+blocklayout[19] = blocklayout[20];
+blocklayout[20] = blocklayout[21];
+blocklayout[21] = blocklayout[22];
+blocklayout[22] = blocklayout[23];
+blocklayout[23] = blocklayout[13];
+xblock2 = 24;
+newpos2 = 24;
+}
+
+if (xblock3 == 8) {
+blocklayout[24] = blocklayout[35];
+blocklayout[25] = blocklayout[26];
+blocklayout[26] = blocklayout[27];
+blocklayout[27] = blocklayout[28];
+blocklayout[28] = blocklayout[29];
+blocklayout[29] = blocklayout[30];
+blocklayout[30] = blocklayout[31];
+blocklayout[31] = blocklayout[32];
+blocklayout[32] = blocklayout[33];
+blocklayout[33] = blocklayout[34];
+blocklayout[34] = blocklayout[35];
+blocklayout[35] = blocklayout[25];
+xblock3 = 24;
+newpos3 = 24;
+}
+
+
+//Layer 1
+if (xblock == 40) {
+blocklayout[11] = blocklayout[10];
+blocklayout[10] = blocklayout[9];
+blocklayout[9] = blocklayout[8];
+blocklayout[8] = blocklayout[7];
+blocklayout[7] = blocklayout[6];
+blocklayout[6] = blocklayout[5];
+blocklayout[5] = blocklayout[4];
+blocklayout[4] = blocklayout[3];
+blocklayout[3] = blocklayout[2];
+blocklayout[2] = blocklayout[1];
+blocklayout[1] = blocklayout[0];
+blocklayout[0] = blocklayout[10];
+
+xblock = 24;
+newpos1 = 24;
+}
+
+if (xblock2 == 40) {
+blocklayout[23] = blocklayout[22];
+blocklayout[22] = blocklayout[21];
+blocklayout[21] = blocklayout[20];
+blocklayout[20] = blocklayout[19];
+blocklayout[19] = blocklayout[18];
+blocklayout[18] = blocklayout[17];
+blocklayout[17] = blocklayout[16];
+blocklayout[16] = blocklayout[15];
+blocklayout[15] = blocklayout[14];
+blocklayout[14] = blocklayout[13];
+blocklayout[13] = blocklayout[12];
+blocklayout[12] = blocklayout[22];
+
+xblock2 = 24;
+newpos2 = 24;
+}
+
+if (xblock3 == 40) {
+blocklayout[35] = blocklayout[34];
+blocklayout[34] = blocklayout[33];
+blocklayout[33] = blocklayout[32];
+blocklayout[32] = blocklayout[31];
+blocklayout[31] = blocklayout[30];
+blocklayout[30] = blocklayout[29];
+blocklayout[29] = blocklayout[28];
+blocklayout[28] = blocklayout[27];
+blocklayout[27] = blocklayout[26];
+blocklayout[26] = blocklayout[25];
+blocklayout[25] = blocklayout[24];
+blocklayout[24] = blocklayout[34];
+
+xblock3 = 24;
+newpos3 = 24;
+}
+
+for(loop = 0; loop < 36; loop++) {
+	int level = 0;
+	int yadd = 0;
+	int location = 0;
+
+	if (loop >= 24) {level = 24; yadd = 32;}
+	else if (loop >= 12) {level = 12; yadd = 16;}
+	if (blocklayout[loop] == colorlayout[0]) {location = 512;
+	}else if (blocklayout[loop] == colorlayout[1]){ location = 512 + 16;
+	}else if (blocklayout[loop] == colorlayout[2]){ location = 512 + 32;
+	}else if (blocklayout[loop] == colorlayout[3]){ location = 512 + 48;}
+	sprites[loop+5].attribute0 = COLOR_256 | SQUARE | yblock + yadd;
+	sprites[loop+5].attribute1 = SIZE_16 | xblock + (loop-level)*16;
+	sprites[loop+5].attribute2 = location;
+	}
+}
+
+void checkstack(void) {
+u16 loop;
+u16 loop2;
+
+
+
+if (kwp == "True") {
+int report = 0; 
+for(loop = 1; loop < 11; loop++) {
+int yel = 0;
+int red = 0;
+int blu = 0;
+int gre = 0;
+
+int first = 0;
+int second = 0;
+int third = 0;
+
+if (blocklayout[loop] == blocklayout[loop+12] && blocklayout[loop] == blocklayout[loop+24]){
+score++;
+report++;
+//Do something
+
+sprites[loop+5].attribute2 = 512+80;
+sprites[loop+17].attribute2 = 512+80;
+sprites[loop+29].attribute2 = 512+80;
+
+while ((REG_KEYS & KEY_A)) {
+WaitForVsync();
+CopyOAM();
+}
+while (!(REG_KEYS & KEY_A)) {
+WaitForVsync();
+CopyOAM();
+}
+
+for(loop2 = 0; loop2 < 12; loop2++) {
+if (blocklayout[loop2] == "y") yel++;
+if (blocklayout[loop2] == "r") red++;
+if (blocklayout[loop2] == "b") blu++;
+if (blocklayout[loop2] == "g") gre++;
+}
+
+if (yel <= blu && yel <= red && yel <= gre) { blocklayout[loop] = "y"; first = 0; }
+if (red <= blu && red <= yel && red <= gre) { blocklayout[loop] = "r"; first = 1;}
+if (blu <= yel && blu <= red && blu <= gre) { blocklayout[loop] = "b"; first = 2;}
+if (gre <= blu && gre <= red && gre <= yel) { blocklayout[loop] = "g"; first = 3;}
+
+yel = 0;
+red = 0;
+blu = 0;
+gre = 0;
+
+
+for(loop2 = 0; loop2 < 12; loop2++) {
+if (blocklayout[loop2+12] == "y") yel++;
+if (blocklayout[loop2+12] == "r") red++;
+if (blocklayout[loop2+12] == "b") blu++;
+if (blocklayout[loop2+12] == "g") gre++;
+}
+
+if (first == 0) yel += 12;
+if (first == 1) red += 12;
+if (first == 2) blu += 12;
+if (first == 3) gre += 12;
+
+if (yel <= blu && yel <= red && yel <= gre) { blocklayout[loop+12] = "y"; }
+if (red <= blu && red <= yel && red <= gre) { blocklayout[loop+12] = "r"; }
+if (blu <= yel && blu <= red && blu <= gre) { blocklayout[loop+12] = "b"; }
+if (gre <= blu && gre <= red && gre <= yel) { blocklayout[loop+12] = "g"; }
+
+yel = 0;
+red = 0;
+blu = 0;
+gre = 0;
+
+
+for(loop2 = 0; loop2 < 12; loop2++) {
+if (blocklayout[loop2+24] == "y") yel++;
+if (blocklayout[loop2+24] == "r") red++;
+if (blocklayout[loop2+24] == "b") blu++;
+if (blocklayout[loop2+24] == "g") gre++;
+}
+
+if (first == 0 && second == 0) yel += 12;
+if (first == 1 && second == 1) red += 12;
+if (first == 2 && second == 2) blu += 12;
+if (first == 3 && second == 3) gre += 12;
+
+if (yel <= blu && yel <= red && yel <= gre) { blocklayout[loop+24] = "y"; }
+if (red <= blu && red <= yel && red <= gre) { blocklayout[loop+24] = "r"; }
+if (blu <= yel && blu <= red && blu <= gre) { blocklayout[loop+24] = "b"; }
+if (gre <= blu && gre <= red && gre <= yel) { blocklayout[loop+24] = "g"; }
+
+yel = 0;
+red = 0;
+blu = 0;
+gre = 0;
+
+
+}
+}
+for (int i = 0; i <= 10; i++) {
+if (report == i) {
+moves += 1*i;
+}
+}
+if (report == 0) {
+moves -= 2;
+}
+kwp = "False";
+}
+}
+
+void initialrotate(void) {
+//This helps to... aww fuck it, Ill explain in the morning
+blocklayout[0] = blocklayout[11];
+blocklayout[1] = blocklayout[2];
+blocklayout[2] = blocklayout[3];
+blocklayout[3] = blocklayout[4];
+blocklayout[4] = blocklayout[5];
+blocklayout[5] = blocklayout[6];
+blocklayout[6] = blocklayout[7];
+blocklayout[7] = blocklayout[8];
+blocklayout[8] = blocklayout[9];
+blocklayout[9] = blocklayout[10];
+blocklayout[10] = blocklayout[11];
+blocklayout[11] = blocklayout[1];
+
+blocklayout[12] = blocklayout[23];
+blocklayout[13] = blocklayout[14];
+blocklayout[14] = blocklayout[15];
+blocklayout[15] = blocklayout[16];
+blocklayout[16] = blocklayout[17];
+blocklayout[17] = blocklayout[18];
+blocklayout[18] = blocklayout[19];
+blocklayout[19] = blocklayout[20];
+blocklayout[20] = blocklayout[21];
+blocklayout[21] = blocklayout[22];
+blocklayout[22] = blocklayout[23];
+blocklayout[23] = blocklayout[13];
+
+blocklayout[24] = blocklayout[35];
+blocklayout[25] = blocklayout[26];
+blocklayout[26] = blocklayout[27];
+blocklayout[27] = blocklayout[28];
+blocklayout[28] = blocklayout[29];
+blocklayout[29] = blocklayout[30];
+blocklayout[30] = blocklayout[31];
+blocklayout[31] = blocklayout[32];
+blocklayout[32] = blocklayout[33];
+blocklayout[33] = blocklayout[34];
+blocklayout[34] = blocklayout[35];
+blocklayout[35] = blocklayout[25];
+
+}
+
+void randombricks(void) {
+   u16 loop;
+   for(loop = 0; loop < 36; loop++) {
+   int random = 0;
+   random = rand() % 4 + 1;
+   if (random == 1) blocklayout[loop] = "y";
+   if (random == 2) blocklayout[loop] = "r";
+   if (random == 3) blocklayout[loop] = "b";
+   if (random == 4) blocklayout[loop] = "g";
+   }
+ 
+}
+
+void displayNumber(void) {
+u16 loop;
+if (moves >= 9) moves = 9;
+sprites[120].attribute2 = 512+(264+8*moves);
+
+if (score < 10000) {
+int digits[] = {0,0,0,0};
+
+int input = score;
+int i = 0;
+
+//Erics Code
+do
+{
+ //get value of lowest digit
+ int temp = input % 10;
+ digits[i] = temp;
+
+ //Remove lowset digit
+ input -= temp;
+ input /= 10;
+
+ //increment counter
+ i++;
+
+}while(input > 0);
+//end of erics code
+
+for (loop = 0; loop < 4; loop++) {
+sprites[(121 + loop)].attribute2 = 512+(264 + digits[loop]*8);
+}
+}else{score = 0;}}
+
+void gameover(void) {
+u16 loop;
+if (moves < 1) {
+	xblock = 24;
+	xblock2 = 24;
+	xblock3 = 24;
+	for(loop = 0; loop < 36; loop++) {
+	if (loop >= 24) {MoveSprite(&sprites[loop+5],xblock3+(loop-24)*16,yblock+32);}
+	else if (loop >= 12) {MoveSprite(&sprites[loop+5],xblock2+(loop-12)*16,yblock+16);}
+	else{MoveSprite(&sprites[loop+5],xblock+(loop)*16,yblock);}}
+	sprites[4].attribute0 = COLOR_256 | WIDE | 58;
+	sprites[4].attribute1 = SIZE_64 | 88;
+	sprites[4].attribute2 = 512+344;
+	while((REG_KEYS & KEY_START)) {
+		moves = 0;
+		WaitForVsync();
+		CopyOAM();
+		MoveSprite(&sprites[0],currentbar,ypointer = 34+16*currentbar);
+		displayNumber();
+	}
+	moves = 6;
+        score = 0000;
+	newpos1 = 8;
+	newpos2 = 40;
+	newpos3 = 8;
+	sprites[4].attribute0 = COLOR_256 | WIDE | 58;
+	sprites[4].attribute1 = SIZE_64 | 240;
+	sprites[4].attribute2 = 512+344;
+}}
+

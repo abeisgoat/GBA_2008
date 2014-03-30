@@ -1,0 +1,105 @@
+#include "gba.h"
+#include "bg.h"
+#include "ball.h"
+#include <cstring>
+
+#define REG_DISPCNT (*(volatile unsigned short*)0x4000000)
+#define REG_KEYS (*(unsigned short*)0x4000130)
+
+void InitializeSprites(void);
+void CopyOAM(void);
+void MoveSprite(OAMEntry* sp, int x, int y);
+void MoveBall(void);
+
+OAMEntry sprites[128];
+
+u16 xball = 30;
+u16 yball = 50;
+int speed = 1;
+
+int main() {
+
+	u16 loop;
+
+	SetMode(MODE_4 | BG2_ENABLE | OBJ_ENABLE | OBJ_MAP_1D);
+
+	for(loop = 0; loop < 256; loop++) {
+	OBJ_PaletteMem[loop] = ballPalette[loop];
+	}
+
+	for (loop = 0; loop < 256; loop++) {
+		BG_PaletteMem[loop]=bgPalette[loop];
+	}
+
+	for (loop = 0; loop < (120*160); loop++) {
+		FrontBuffer[loop] = bgData[loop] ;
+	}
+
+	memcpy( (u16 *)0x06014000, &ballData, sizeof(ballData) );
+
+	sprites[0].attribute0 = COLOR_256 | SQUARE | yball;
+	sprites[0].attribute1 = SIZE_8 | xball;
+	sprites[0].attribute2 = 512;
+
+	while(1)
+	{
+		MoveBall();
+		MoveSprite(&sprites[0],xball,yball);
+		WaitForVsync();
+		CopyOAM();
+	}
+
+	return 0;
+
+}
+
+void InitializeSprites(void)
+{
+	u16 loop;
+	for(loop = 0; loop < 128; loop++) {
+		sprites[loop].attribute0 = 160;
+		sprites[loop].attribute1 = 240;
+	}
+}
+
+void CopyOAM(void)
+{
+	u16 loop;
+	u16* temp;
+	temp = (u16*)sprites;
+	for(loop = 0; loop < 128*4; loop++)	{
+		OAM_Mem[loop] = temp[loop];
+	}
+}
+
+void MoveSprite(OAMEntry* sp, int x, int y)
+{
+
+
+	sp->attribute1 = sp->attribute1 & 0xFE00;
+	sp->attribute1 = sp->attribute1 | x;
+
+	sp->attribute0 = sp->attribute0 & 0xFF00;
+	sp->attribute0 = sp->attribute0 | y;
+}
+
+void MoveBall(void) {
+   if(!(REG_KEYS & KEY_A)){
+      speed = 2;
+   }else{
+      speed = 1;
+   }
+ 
+   if(!(REG_KEYS & KEY_UP))
+      yball -= speed;
+ 
+   if(!(REG_KEYS & KEY_DOWN))
+      yball += speed;
+
+   if(!(REG_KEYS & KEY_LEFT))
+      xball -= speed;
+ 
+   if(!(REG_KEYS & KEY_RIGHT))
+      xball += speed;
+}
+

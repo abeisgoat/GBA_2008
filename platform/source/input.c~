@@ -1,0 +1,103 @@
+#include <gba.h>
+
+#define REG_DISPCNT (*(volatile unsigned short*)0x4000000)
+#define REG_KEYS (*(unsigned short*)0x4000130)
+
+int frame = 0;
+int i = 1;
+
+void Vblank() {
+
+	frame++;
+}
+//---------------------------------------------------------------------------------
+// Program entry point
+//---------------------------------------------------------------------------------
+int main(void) {
+//---------------------------------------------------------------------------------
+
+
+	// the vblank interrupt must be enabled for VBlankIntrWait() to work
+	// since the default dispatcher handles the bios flags no vblank handler
+	// is required
+	irqInit();
+	irqSet(IRQ_VBLANK, Vblank);
+	irqEnable(IRQ_VBLANK);
+
+	consoleInit( 0 , 4 , 0, NULL , 0 , 15);
+
+	BG_COLORS[0]=RGB8(58,58,58);
+	BG_COLORS[241]=RGB5(31,31,31);
+
+	SetMode(MODE_0 | BG0_ON);
+
+// My sexysauce code to print each key
+	while (1) {
+		VBlankIntrWait();
+		scanKeys();
+
+		if(!(REG_KEYS & KEY_A))
+		{
+		printf("A Pressed\n");
+		REG_DISPCNT ^= BACKBUFFER;
+		}
+
+		if(!(REG_KEYS & KEY_B))
+		{
+		printf("B Pressed\n");
+		REG_DISPCNT ^= BACKBUFFER;
+		}
+
+		if(!(REG_KEYS & KEY_UP))
+		{
+		printf("UP Pressed\n");
+		REG_DISPCNT ^= BACKBUFFER;
+		}
+
+		if(!(REG_KEYS & KEY_DOWN))
+		{
+		printf("DOWN Pressed\n");
+		REG_DISPCNT ^= BACKBUFFER;
+		}
+
+		if(!(REG_KEYS & KEY_LEFT))
+		{
+		printf("Left Pressed\n");
+		REG_DISPCNT ^= BACKBUFFER;
+		}
+
+		if(!(REG_KEYS & KEY_RIGHT))
+		{
+		printf("Right Pressed\n");
+		REG_DISPCNT ^= BACKBUFFER;
+		}
+
+		if(!(REG_KEYS & KEY_L))
+		{
+		printf("L Pressed\n");
+		REG_DISPCNT ^= BACKBUFFER;
+		}
+
+		if(!(REG_KEYS & KEY_R))
+		{
+		printf("R Pressed\n");
+		REG_DISPCNT ^= BACKBUFFER;
+		}
+
+		if(!(REG_KEYS & KEY_START))
+		{
+		printf("Start Pressed\n");
+		REG_DISPCNT ^= BACKBUFFER;
+		}
+
+		if(!(REG_KEYS & KEY_SELECT))
+		{
+		printf("Select Pressed\n");
+		REG_DISPCNT ^= BACKBUFFER;
+		}
+
+		
+	}
+}
+
+

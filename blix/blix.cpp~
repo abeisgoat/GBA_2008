@@ -1,0 +1,344 @@
+//Started Dec 22, 2008
+#include "gba.h"
+#include "logo.h"
+#include "pointer.h"
+#include <cstring>
+#include "blueblock.h"
+#include "yellowblock.h"
+#include "redblock.h"
+#include "greenblock.h"
+
+//YRBG
+
+#define REG_DISPCNT (*(volatile unsigned short*)0x4000000)
+#define REG_KEYS (*(unsigned short*)0x4000130)
+
+void InitializeSprites(void);
+void CopyOAM(void);
+void MoveSprite(OAMEntry* sp, int x, int y);
+void Moveblock(void);
+void rotate(void);
+
+OAMEntry sprites[128];
+
+char* blocklayout[] = {
+"y", "g", "r", "b", "y",
+"b", "g", "y", "b", "r",
+"y", "g", "b", "y", "r",
+"b", "g", "y", "g", "y", 
+"r", "b", "g", "y", "b", 
+"y", "r", "y", "b", "g" };
+
+
+const char* colorlayout[] = {"y", "r", "b", "g"};
+
+int xblocklayout[29];
+
+int speed = 1;
+int leftpress = 0;
+int rightpress = 0;
+int downpress = 0;
+int uppress = 0;
+int currentbar = 1;
+
+
+u16 xblock = 40;
+u16 xblock2 = 40;
+u16 xblock3 = 40;
+u16 yblock = 50;
+
+u16 ypointer = 50+16*currentbar;
+
+u16 newpos1 = 40;
+u16 newpos2 = 40;
+u16 newpos3 = 40;
+
+int main() {
+
+	u16 loop;
+
+	SetMode(MODE_4 | BG2_ENABLE | OBJ_ENABLE | OBJ_MAP_1D);
+
+//Yellow Block
+	memcpy( (u16 *)0x06014000, &yellowblockData, sizeof(yellowblockData) );
+
+	for(loop = 0; loop < 256; loop++) {
+	OBJ_PaletteMem[loop] = yellowblockPalette[loop];
+	}
+
+//Red Block
+	memcpy( (u16 *)0x06014200, &redblockData, sizeof(redblockData) );
+
+	for(loop = 0; loop < 256; loop++) {
+	OBJ_PaletteMem[loop] = redblockPalette[loop];
+	}
+
+//Blue Block
+	memcpy( (u16 *)0x06014400, &blueblockData, sizeof(blueblockData) );
+
+	for(loop = 0; loop < 256; loop++) {
+	OBJ_PaletteMem[loop] = blueblockPalette[loop];
+	}
+
+//Green Block
+	memcpy( (u16 *)0x06014600, &greenblockData, sizeof(greenblockData) );
+
+	for(loop = 0; loop < 256; loop++) {
+	OBJ_PaletteMem[loop] = greenblockPalette[loop];
+	}
+
+//Green Block
+	memcpy( (u16 *)0x06014a00, &greyblockData, sizeof(greyblockData) );
+
+	for(loop = 0; loop < 256; loop++) {
+	OBJ_PaletteMem[loop] = greyblockPalette[loop];
+	}
+
+//Pointer
+	memcpy( (u16 *)0x06014800, &pointerData, sizeof(pointerData) );
+
+	for(loop = 0; loop < 256; loop++) {
+	OBJ_PaletteMem[loop] = pointerPalette[loop];
+	}
+
+	sprites[100].attribute0 = COLOR_256 | SQUARE | ypointer;
+	sprites[100].attribute1 = SIZE_16 | currentbar;
+	sprites[100].attribute2 = 512+64;
+
+//Sprite Set up
+
+	for(loop = 0; loop < 30; loop++) {
+	int level = 0;
+	int yadd = 0;
+	int location = 0;
+
+	if (loop >= 20) {level = 20; yadd = 32;}
+	else if (loop >= 10) {level = 10; yadd = 16;}
+	if (blocklayout[loop] == colorlayout[0]) {location = 512;
+	}else if (blocklayout[loop] == colorlayout[1]){ location = 512 + 16;
+	}else if (blocklayout[loop] == colorlayout[2]){ location = 512 + 32;
+	}else if (blocklayout[loop] == colorlayout[3]){ location = 512 + 48;}
+	sprites[loop].attribute0 = COLOR_256 | SQUARE | yblock + yadd;
+	sprites[loop].attribute1 = SIZE_16 | xblock + (loop-level)*16;
+	sprites[loop].attribute2 = location;
+	}
+
+	//Layer 1
+	blocklayout[9] = blocklayout[1];
+	blocklayout[0] = blocklayout[8];if lala else lala ifelse else if
+
+	//Layer 2
+	blocklayout[19] = blocklayout[11];
+	blocklayout[10] = blocklayout[18];
+
+	//Layer 3
+	blocklayout[29] = blocklayout[21];
+	blocklayout[20] = blocklayout[28];
+
+	while(1)
+	{
+		Moveblock();
+		for(loop = 0; loop < 30; loop++) {
+		if (loop >= 20) {MoveSprite(&sprites[loop],xblock3+(loop-20)*16,yblock+32);}
+		else if (loop >= 10) {MoveSprite(&sprites[loop],xblock2+(loop-10)*16,yblock+16);}
+		else{MoveSprite(&sprites[loop],xblock+(loop)*16,yblock);}}
+		WaitForVsync();
+		CopyOAM();
+		MoveSprite(&sprites[100],currentbar,ypointer = 34+16*currentbar);
+		rotate();
+	}
+
+	return 0;blocklayout[9] = blocklayout[1];
+
+}
+
+void InitializeSprites(void)
+{
+	u16 loop;
+	for(loop = 0; loop < 128; loop++) {
+		sprites[loop].attribute0 = 160;
+		sprites[loop].attribute1 = 240;
+	}
+}
+
+void CopyOAM(void)
+{
+	u16 loop;
+	u16* temp;
+	temp = (u16*)sprites;
+	for(loop = 0; loop < 128*4; loop++)	{
+		OAM_Mem[loop] = temp[loop];
+	}
+}
+
+void MoveSprite(OAMEntry* sp, int x, int y)
+{
+
+	sp->attribute1 = sp->attribute1 & 0xFE00;
+	sp->attribute1 = sp->attribute1 | x;
+
+	sp->attribute0 = sp->attribute0 & 0xFF00;
+	sp->attribute0 = sp->attribute0 | y;
+}
+
+void Moveblock(void) {
+//Left & Right Key checks; when pressed they move they change the newpos not the actual xposition, for smoothness
+   if(!(REG_KEYS & KEY_LEFT)) {
+      if (leftpress == 0) {
+	if (currentbar == 1) newpos1 -= 16; 
+	if (currentbar == 2) newpos2 -= 16; 
+	if (currentbar == 3) newpos3 -= 16; 
+	leftpress = 1;
+      }}else{ leftpress = 0; }
+ 
+   if(!(REG_KEYS & KEY_RIGHT)) {
+      if (rightpress == 0) {
+	if (currentbar == 1) newpos1 += 16; 
+	if (currentbar == 2) newpos2 += 16; 
+	if (currentbar == 3) newpos3 += 16; 
+	rightpress = 1;
+      }}else{ rightpress = 0; }
+
+   if(!(REG_KEYS & KEY_DOWN)) {
+      if (downpress == 0) currentbar += 1; downpress = 1;
+      }else{ downpress = 0; }
+
+   if(!(REG_KEYS & KEY_UP)) {
+      if (uppress == 0) currentbar -= 1; uppress = 1;
+      }else{ uppress = 0; }
+
+
+//if xblock is smaller then newpos at 1, if its bigger, subtract one
+if (xblock < newpos1) xblock += 1;
+if (xblock > newpos1) xblock -= 1;
+
+if (xblock2 < newpos2) xblock2 += 1;
+if (xblock2 > newpos2) xblock2 -= 1;
+
+if (xblock3 < newpos3) xblock3 += 1;
+if (xblock3 > newpos3) xblock3 -= 1;
+
+
+if (currentbar <= 0) currentbar = 3;
+if (currentbar >= 4) currentbar = 1;
+	
+
+
+}
+
+void rotate(void) {
+u16 loop; 
+//Layer 1
+
+if (xblock == 24) {
+blocklayout[0] = blocklayout[9];
+blocklayout[1] = blocklayout[2];
+blocklayout[2] = blocklayout[3];
+blocklayout[3] = blocklayout[4];
+blocklayout[4] = blocklayout[5];
+blocklayout[5] = blocklayout[6];
+blocklayout[6] = blocklayout[7];
+blocklayout[7] = blocklayout[8];
+blocklayout[8] = blocklayout[9];
+blocklayout[9] = blocklayout[1];
+xblock = 40;
+newpos1 = 40;
+}
+
+if (xblock2 == 24) {
+blocklayout[10] = blocklayout[19];
+blocklayout[11] = blocklayout[12];
+blocklayout[12] = blocklayout[13];
+blocklayout[13] = blocklayout[14];
+blocklayout[14] = blocklayout[15];
+blocklayout[15] = blocklayout[16];
+blocklayout[16] = blocklayout[17];
+blocklayout[17] = blocklayout[18];
+blocklayout[18] = blocklayout[19];
+blocklayout[19] = blocklayout[11];
+xblock2 = 40;
+newpos2 = 40;
+}
+
+if (xblock3 == 24) {
+blocklayout[20] = blocklayout[29];
+blocklayout[21] = blocklayout[22];
+blocklayout[22] = blocklayout[23];
+blocklayout[23] = blocklayout[24];
+blocklayout[24] = blocklayout[25];
+blocklayout[25] = blocklayout[26];
+blocklayout[26] = blocklayout[27];
+blocklayout[27] = blocklayout[28];
+blocklayout[28] = blocklayout[29];
+blocklayout[29] = blocklayout[21];
+xblock3 = 40;
+newpos3 = 40;
+}
+
+
+//Layer 1
+if (xblock == 56) {
+blocklayout[9] = blocklayout[8];
+blocklayout[8] = blocklayout[7];
+blocklayout[7] = blocklayout[6];
+blocklayout[6] = blocklayout[5];
+blocklayout[5] = blocklayout[4];
+blocklayout[4] = blocklayout[3];
+blocklayout[3] = blocklayout[2];
+blocklayout[2] = blocklayout[1];
+blocklayout[1] = blocklayout[0];
+blocklayout[0] = blocklayout[8];
+
+xblock = 40;
+newpos1 = 40;
+}
+
+if (xblock2 == 56) {
+blocklayout[19] = blocklayout[18];
+blocklayout[18] = blocklayout[17];
+blocklayout[17] = blocklayout[16];
+blocklayout[16] = blocklayout[15];
+blocklayout[15] = blocklayout[14];
+blocklayout[14] = blocklayout[13];
+blocklayout[13] = blocklayout[12];
+blocklayout[12] = blocklayout[11];
+blocklayout[11] = blocklayout[10];
+blocklayout[10] = blocklayout[18];
+
+xblock2 = 40;
+newpos2 = 40;
+}
+
+if (xblock3 == 56) {
+blocklayout[29] = blocklayout[28];
+blocklayout[28] = blocklayout[27];
+blocklayout[27] = blocklayout[26];
+blocklayout[26] = blocklayout[25];
+blocklayout[25] = blocklayout[24];
+blocklayout[24] = blocklayout[23];
+blocklayout[23] = blocklayout[22];
+blocklayout[22] = blocklayout[21];
+blocklayout[21] = blocklayout[20];
+blocklayout[20] = blocklayout[28];
+
+xblock3 = 40;
+newpos3 = 40;
+}
+
+for(loop = 0; loop < 30; loop++) {
+	int level = 0;
+	int yadd = 0;
+	int location = 0;
+
+	if (loop >= 20) {level = 20; yadd = 32;}
+	else if (loop >= 10) {level = 10; yadd = 16;}
+	if (blocklayout[loop] == colorlayout[0]) {location = 512;
+	}else if (blocklayout[loop] == colorlayout[1]){ location = 512 + 16;
+	}else if (blocklayout[loop] == colorlayout[2]){ location = 512 + 32;
+	}else if (blocklayout[loop] == colorlayout[3]){ location = 512 + 48;}
+	sprites[loop].attribute0 = COLOR_256 | SQUARE | yblock + yadd;
+	sprites[loop].attribute1 = SIZE_16 | xblock + (loop-level)*16;
+	sprites[loop].attribute2 = location;
+	}
+}
+

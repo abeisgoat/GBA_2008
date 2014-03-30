@@ -1,0 +1,56 @@
+#include <gba.h>
+#include "gba_sprites.h"
+#include "ball.h"
+
+void InitializeSprites(void);
+void CopyOAM(void);
+
+OAMEntry sprites[128];
+
+int main() {
+
+	u16 loop;
+
+	SetMode(MODE_4 | BG2_ENABLE | OBJ_ENABLE | OBJ_MAP_1D);
+
+	for(loop = 0; loop < 256; loop++) {
+	OBJ_PaletteMem[loop] = ballPalette[loop];
+	}
+
+
+	memcpy( (u16 *)0x06014000, &ballData, sizeof(ballData) );
+
+	sprites[0].attribute0 = COLOR_256 | SQUARE | 50;
+	sprites[0].attribute1 = SIZE_8 | 30;
+	sprites[0].attribute2 = 512;
+
+	while(1)
+	{
+		WaitForVsync();
+		CopyOAM();
+	}
+
+	return 0;
+
+}
+
+void InitializeSprites(void)
+{
+	u16 loop;
+	for(loop = 0; loop < 128; loop++) {
+		sprites[loop].attribute0 = 160;
+		sprites[loop].attribute1 = 240;
+	}
+}
+
+void CopyOAM(void)
+{
+	u16 loop;
+	u16* temp;
+	temp = (u16*)sprites;
+	for(loop = 0; loop < 128*4; loop++)	{
+		OAM_Mem[loop] = temp[loop];
+	}
+}
+
+

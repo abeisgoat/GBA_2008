@@ -1,0 +1,5 @@
+echo "Good Morning, "
+echo $user
+make clean
+make
+mednafen zombeh_mb.gba

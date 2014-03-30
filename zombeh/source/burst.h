@@ -1,0 +1,14 @@
+/**********************************************\
+*       burst.h                                   *
+*          by dovotos pcx->gba program         *
+/**********************************************/
+#define  burst_WIDTH   8
+#define  urst_HEIGHT  8
+
+
+const u16 burstData[] = {
+                    0x0000, 0x0000, 0x0000, 0x0000, 0x00FA, 0x0000, 0x0000, 0x0000, 0xFAFA, 0x0000,
+                    0x0000, 0x0000, 0xFAFA, 0xFAFA, 0xFAFA, 0x00FA, 0xFAFA, 0xFAFA, 0xFAFA, 0x0000,
+                    0xFAFA, 0x0000, 0x0000, 0x0000, 0x00FA, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+                    0x0000, 0x0000,};
+
